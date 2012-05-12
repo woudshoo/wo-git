@@ -114,6 +114,17 @@ The argument `git-dir' is the path to the repository and the `selection' is used
 	    nil graph))))
     (setf (name-map graph) (git-names git-dir "--all"))
     (setf (reverse-name-map graph) (reverse-table (name-map graph)))
+    ;; Add initial commits to the maps to:
+    (loop
+       :with name-map = (name-map graph)
+       :with rn-map = (reverse-name-map graph)
+       :with index = 0
+       :for vertex :in (all-vertices graph)
+       :unless (sources-of-vertex vertex graph) :do
+       (let ((fake-name (format nil "Initial-~D" index)))
+	 (incf index)
+	 (setf (gethash fake-name rn-map) (list vertex))
+	 (setf (gethash vertex name-map) (list fake-name))))
     graph))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
