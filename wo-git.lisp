@@ -11,20 +11,6 @@
   "The git executeable.")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Parsing git output
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun git-parse-names (names)
-  "Given the git output given by %d in the string `names',
-which looks likea string like (name-1, name-2, ...)
-return a list containing the name-1, name-2, ..."
-  (loop :for name :in
-     (mapcar #'trim-spaces
-	     (split "\\(|,|\\)" names))
-     :when (> (length name) 0) :collect name))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Functions to run git
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -35,7 +21,12 @@ in `args'.
 
 It returns a list of strings corresponding to the stdout of the git command.
 
-It is not specified what happens if th git command trhows an error."
+It is not specified what happens if th git command throws an error.
+
+An example of use would be:
+
+  \(run-git git-dir \"log\" \"--pretty=format:%H %P\" \"--all\"\)
+"
 
   (let ((proc (run-program *git-command*
 			  (cons (format nil "--git-dir=~A" git-dir) args)
@@ -46,30 +37,23 @@ It is not specified what happens if th git command trhows an error."
 	   :while line :collect line)
       (process-close proc))))
 
-(defun git-commits (git-dir &rest selection)
-  "Returns all commits as a list of
-strings.  Each string looks like:
 
-  SHA-commit SHA-commit-parent-1 ... SHA-commit-parent-n
+(defun oid-to-string (oid)
+  (format nil "~40,'0X" oid))
 
-The `git-dir' argument is the path to the repository for which we want
-to know the commits and the selection is a list of command line arguments
-which can be used to select a subset of commits.  For valid
-values of `selection' read up on the git man page.
-"
-  (apply #'run-git git-dir  "log" "--pretty=format:%H %P" selection))
-
-(defun git-names (git-dir &rest selection)
+(defun git-names ()
   "Returns a hash table which maps commit SHA strings to a list of names.
-A name is either a tag or a branch.
-The argument `git-dir' is the path to the repository and the `selection' is used to specify which commits to include."
+The precondition is that the git repository is already opened"
   (let ((result (make-hash-table :test #'equalp)))
-    (loop :for line :in (apply #'run-git git-dir "log" "--pretty=format:%H %d" selection)
+    (loop :for reference-name :in (cl-git:git-reference-listall)
+       :for reference = (cl-git:git-reference-lookup reference-name)
+       :for resolved-reference = (cl-git:git-reference-resolve reference)
+       :for oid = (cl-git:git-reference-oid resolved-reference)
        :do
-       (setf (gethash (subseq line 0 40) result)
-	     (git-parse-names (subseq line 40))))
+       (push reference-name (gethash (oid-to-string oid) result (list)))
+       (cl-git:git-object-free resolved-reference)
+       (cl-git:git-object-free reference))
     result))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Data structures
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -88,19 +72,6 @@ The argument `git-dir' is the path to the repository and the `selection' is used
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Creation of the graph
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#+nil (defun get-git-graph (git-dir)
-  (let ((graph (make-instance 'git-graph :test #'equalp)))
-    (loop :for line :in (git-commits git-dir "--all")
-       :for split-line = (cl-ppcre:split " " line)
-       :do
-       (loop :with commit = (car split-line)
-	  :for parent :in (cdr split-line)
-	  :do
-	  (add-edge parent commit nil graph)))
-    (setf (name-map graph) (git-names git-dir "--all"))
-    (setf (reverse-name-map graph) (reverse-table (name-map graph)))
-    graph))
-
 (defun get-git-graph (git-dir)
   (let ((graph (make-instance 'git-graph :test #'equalp)))
     (cl-git:with-git-repository (git-dir)
@@ -108,12 +79,11 @@ The argument `git-dir' is the path to the repository and the `selection' is used
 	  (commit :head (cl-git:git-reference-listall))
 	(loop :for parent :in (cl-git::git-commit-parent-oids commit)
 	   :do
-	   (add-edge
-	    (cl-git::git-oid-tostr parent)
-	    (cl-git::git-oid-tostr (cl-git::git-object-id commit))
-	    nil graph))))
-    (setf (name-map graph) (git-names git-dir "--all"))
-    (setf (reverse-name-map graph) (reverse-table (name-map graph)))
+	   (add-edge (oid-to-string parent)
+	    (oid-to-string (cl-git::git-object-id commit))
+	    nil graph)))
+      (setf (name-map graph) (git-names))
+      (setf (reverse-name-map graph) (reverse-table (name-map graph))))
     ;; Add initial commits to the maps to:
     (loop
        :with name-map = (name-map graph)
