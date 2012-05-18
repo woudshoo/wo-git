@@ -49,8 +49,11 @@ The precondition is that the git repository is already opened"
        :for reference = (cl-git:git-reference-lookup reference-name)
        :for resolved-reference = (cl-git:git-reference-resolve reference)
        :for oid = (cl-git:git-reference-oid resolved-reference)
+       :for obj = (cl-git:git-object-lookup oid :any)
        :do
-       (push reference-name (gethash (oid-to-string oid) result (list)))
+       (case (cl-git:git-object-type obj)
+	 (:tag (setf obj (prog1 (cl-git:git-tag-target obj) (cl-git:git-object-free obj)))))
+       (push reference-name (gethash (oid-to-string (cl-git:git-object-id obj)) result (list)))
        (cl-git:git-object-free resolved-reference)
        (cl-git:git-object-free reference))
     result))
