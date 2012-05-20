@@ -129,3 +129,19 @@ The argument `name-or-rev' can either be a full SHA1 commit (as string)
 or a name for the commit.  If there is a name with which is also
 a SHA1 for a different commit, the named vertex will be returned."
   (or (name-to-vertex name-or-rev git-graph) name-or-rev))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Testing methods
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun boundary-names (git-graph)
+  "Returns names of vertices which are at a boundary, that is they
+have eiter no parents or no children"
+  (loop :for name :in (all-names git-graph)
+     :for vertex = (name-to-vertex name git-graph)
+     :unless (and (targets-of-vertex vertex git-graph) (sources-of-vertex vertex git-graph))
+     :collect name))
+
+

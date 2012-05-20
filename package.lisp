@@ -13,5 +13,6 @@
    #:match-name
    #:run-git
    #:name-to-vertex
-   #:name-or-rev-to-vertex))
+   #:name-or-rev-to-vertex
+   #:*git-command*))
 
