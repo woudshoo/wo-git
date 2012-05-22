@@ -45,7 +45,7 @@ An example of use would be:
   "Returns a hash table which maps commit SHA strings to a list of names.
 The precondition is that the git repository is already opened"
   (let ((result (make-hash-table :test #'equalp)))
-    (loop :for reference-name :in (cl-git:git-reference-listall)
+    (loop :for reference-name :in (cl-git:git-reference-listall :SYMBOLIC :OID :PACKED)
        :for reference = (cl-git:git-reference-lookup reference-name)
        :for resolved-reference = (cl-git:git-reference-resolve reference)
        :for oid = (cl-git:git-reference-oid resolved-reference)
@@ -79,7 +79,7 @@ The precondition is that the git repository is already opened"
   (let ((graph (make-instance 'git-graph :test #'equalp)))
     (cl-git:with-git-repository (git-dir)
       (cl-git:with-git-revisions
-	  (commit :head (cl-git:git-reference-listall))
+	  (commit :head (cl-git:git-reference-listall :OID :PACKED))
 	(loop :for parent :in (cl-git::git-commit-parent-oids commit)
 	   :do
 	   (add-edge (oid-to-string parent)
