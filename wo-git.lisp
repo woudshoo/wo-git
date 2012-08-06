@@ -7,7 +7,7 @@
 
 (defparameter *git-command*
   #+linux "/usr/bin/git"
-  #-linux "/usr/local/bin/git"
+  #-linux "/usr/bin/git"
   "The git executeable.")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -49,11 +49,12 @@ The precondition is that the git repository is already opened"
        :for reference = (cl-git:git-reference-lookup reference-name)
        :for resolved-reference = (cl-git:git-reference-resolve reference)
        :for oid = (cl-git:git-reference-oid resolved-reference)
-       :for obj = (cl-git:git-object-lookup oid :any)
+       :for obj = (ignore-errors (cl-git:git-object-lookup oid :any))
        :do
-       (case (cl-git:git-object-type obj)
-	 (:tag (setf obj (prog1 (cl-git:tag-target obj) (cl-git:git-object-free obj)))))
-       (push reference-name (gethash (oid-to-string (cl-git:git-object-id obj)) result (list)))
+       (when obj
+	 (case (cl-git:git-object-type obj)
+	   (:tag (setf obj (prog1 (cl-git:tag-target obj) (cl-git:git-object-free obj)))))
+	 (push reference-name (gethash (oid-to-string (cl-git:git-object-id obj)) result (list))))
        (cl-git:git-object-free resolved-reference)
        (cl-git:git-object-free reference))
     result))
@@ -75,11 +76,23 @@ The precondition is that the git repository is already opened"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Creation of the graph
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun remove-error-generating-references (references)
+  (format t "Length of input references: ~D~%" (length references))
+  (let ((result (loop :for reference :in references
+		   :when (handler-case  (cl-git::commit-oid-from-oid (cl-git::lookup-oid :head reference)) 
+			   (condition (x) (format t "Got error for: ~A and the error is: ~A~%" reference x) nil))
+		   :collect reference)))
+    (format t "Length of output references: ~D~%" (length result))
+    result))
+       
+
+;;;;;;
 (defun get-git-graph (git-dir)
   (let ((graph (make-instance 'git-graph :test #'equalp)))
     (cl-git:with-repository (git-dir)
       (cl-git:with-git-revisions
-	  (commit :head (cl-git:git-reference-listall :OID :PACKED))
+	  (commit :head (remove-error-generating-references
+			 (cl-git:git-reference-listall :OID :PACKED)))
 	(loop :for parent :in (cl-git::commit-parent-oids commit)
 	   :do
 	   (add-edge (oid-to-string parent)
