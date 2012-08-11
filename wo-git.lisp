@@ -38,11 +38,11 @@ An example of use would be:
       (process-close proc))))
 
 
-(defun oid-to-string (oid)
+#+nil (defun oid-to-string (oid)
   (format nil "~40,'0X" oid))
 
 (defun git-names ()
-  "Returns a hash table which maps commit SHA strings to a list of names.
+  "Returns a hash table which maps commit oid to a list of names.
 The precondition is that the git repository is already opened"
   (let ((result (make-hash-table :test #'equalp)))
     (loop :for reference-name :in (cl-git:git-reference-listall :SYMBOLIC :OID :PACKED)
@@ -54,7 +54,7 @@ The precondition is that the git repository is already opened"
        (when obj
 	 (case (cl-git:git-object-type obj)
 	   (:tag (setf obj (prog1 (cl-git:tag-target obj) (cl-git:git-object-free obj)))))
-	 (push reference-name (gethash (oid-to-string (cl-git:git-object-id obj)) result (list))))
+	 (push reference-name (gethash (cl-git:git-object-id obj) result (list))))
        (cl-git:git-object-free resolved-reference)
        (cl-git:git-object-free reference))
     result))
@@ -88,15 +88,15 @@ The precondition is that the git repository is already opened"
 
 ;;;;;;
 (defun get-git-graph (git-dir)
-  (let ((graph (make-instance 'git-graph :test #'equalp)))
+  "Creates a graph based on the repository in the `git-dir'"
+  (let ((graph (make-instance 'git-graph)))
     (cl-git:with-repository (git-dir)
       (cl-git:with-git-revisions
 	  (commit :head (remove-error-generating-references
 			 (cl-git:git-reference-listall :OID :PACKED)))
 	(loop :for parent :in (cl-git::commit-parent-oids commit)
 	   :do
-	   (add-edge (oid-to-string parent)
-	    (oid-to-string (cl-git::git-object-id commit))
+	   (add-edge parent (cl-git::git-object-id commit)
 	    nil graph)))
       (setf (name-map graph) (git-names))
       (setf (reverse-name-map graph) (reverse-table (name-map graph))))
@@ -140,8 +140,16 @@ The precondition is that the git repository is already opened"
   "Returns the vertex corresponding to `name-or-rev'.
 The argument `name-or-rev' can either be a full SHA1 commit (as string)
 or a name for the commit.  If there is a name with which is also
-a SHA1 for a different commit, the named vertex will be returned."
-  (or (name-to-vertex name-or-rev git-graph) name-or-rev))
+a SHA1 for a different commit, the named vertex will be returned.
+
+If the value is neither a valid name, nor a valid SHA1 it still returns a value, but
+this value is not a vertex in the graph.  So error recovery from this function is 
+not easily done."
+  (typecase name-or-rev
+    (string
+     (or (name-to-vertex name-or-rev git-graph) 
+	 (parse-integer name-or-rev :radix 16 :junk-allowed t)))
+    (t nil)))
 
 
 
