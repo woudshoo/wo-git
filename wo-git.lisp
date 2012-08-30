@@ -50,7 +50,7 @@ The precondition is that the git repository is already opened"
        :do
        (when obj
 	 (case (cl-git:git-object-type obj)
-	   (:tag (setf obj (prog1 (cl-git:tag-target obj) (cl-git:git-object-free obj)))))
+	   (:tag (setf obj (cl-git:tag-target obj))))
 	 (push reference-name (gethash (cl-git:git-object-id obj) result (list))))
        (cl-git:git-object-free resolved-reference)
        (cl-git:git-object-free reference))
@@ -90,7 +90,7 @@ tries to lookup the corresponding commit. All references which generate an error
 during lookup are removed from the result."
   (let ((result (loop :for reference :in references
 		   :when (handler-case  (cl-git::commit-oid-from-oid (cl-git::lookup-oid :head reference))
-			   (condition (x) (format t "Got error for: ~A and the error is: ~A~%" reference x) nil))
+#+nil			   (condition (x) (format t "Got error for: ~A and the error is: ~A~%" reference x) nil))
 		   :collect reference)))
     result))
 
