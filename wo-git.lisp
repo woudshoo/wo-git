@@ -42,16 +42,16 @@ An example of use would be:
   "Returns a hash table which maps commit oid to a list of names.
 The precondition is that the git repository is already opened"
   (let ((result (make-hash-table :test #'equalp)))
-    (loop :for reference-name :in (cl-git:git-reference-list :SYMBOLIC :OID :PACKED)
+    (loop :for reference-name :in (cl-git:git-reference-list :flags '(:SYMBOLIC :OID :PACKED))
        :for reference = (cl-git:git-reference-lookup reference-name)
        :for resolved-reference = (cl-git:git-resolve reference)
        :for oid = (cl-git:git-reference-oid resolved-reference)
        :for obj = (ignore-errors (cl-git:git-object-lookup oid :any))
        :do
        (when obj
-	 (case (cl-git:git-object-type obj)
+	 (case (cl-git:git-type obj)
 	   (:tag (setf obj (cl-git:git-target obj))))
-	 (push reference-name (gethash (cl-git:git-object-id obj) result (list))))
+	 (push reference-name (gethash (cl-git:git-id obj) result (list))))
        (cl-git:git-object-free resolved-reference)
        (cl-git:git-object-free reference))
     result))
@@ -112,7 +112,7 @@ The return value is of the type `git-graph'."
     (cl-git:with-repository (git-dir)
       (cl-git:with-git-revisions
 	  (commit :head (remove-error-generating-references
-			 (cl-git:git-reference-list :OID :PACKED)))
+			 (cl-git:git-reference-list :flags '(:OID :PACKED))))
 	(loop :for parent :in (cl-git:git-parent-oids commit)
 	   :do
 	   (add-edge parent (cl-git:git-id commit)
