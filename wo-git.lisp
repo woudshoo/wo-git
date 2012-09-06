@@ -49,11 +49,9 @@ The precondition is that the git repository is already opened"
        :for obj = (ignore-errors (cl-git:git-object-lookup oid :any))
        :do
        (when obj
-	 (case (cl-git:git-type obj)
-	   (:tag (setf obj (cl-git:git-target obj))))
-	 (push reference-name (gethash (cl-git:git-id obj) result (list))))
-       (cl-git:git-object-free resolved-reference)
-       (cl-git:git-object-free reference))
+	 (typecase obj  ;:TODO replace with 'peel' ???
+	   (cl-git::tag (setf obj (cl-git:git-target obj))))
+	 (push reference-name (gethash (cl-git:git-id obj) result (list)))))
     result))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Data structures
