@@ -42,11 +42,12 @@ An example of use would be:
   "Returns a hash table which maps commit oid to a list of names.
 The precondition is that the git repository is already opened"
   (let ((result (make-hash-table :test #'equalp)))
-    (loop :for reference-name :in (cl-git:git-reference-list :flags '(:SYMBOLIC :OID :PACKED))
-       :for reference = (cl-git:git-reference-lookup reference-name)
+    (loop :for reference-name :in (cl-git:git-list 'cl-git:reference 
+						   :flags '(:SYMBOLIC :OID :PACKED))
+       :for reference = (cl-git:git-lookup 'cl-git:reference reference-name)
        :for resolved-reference = (cl-git:git-resolve reference)
        :for oid = (cl-git:git-reference-oid resolved-reference)
-       :for obj = (ignore-errors (cl-git:git-object-lookup oid :any))
+       :for obj = (ignore-errors (cl-git:git-lookup 'cl-git:object oid))
        :do
        (when obj
 	 (typecase obj  ;:TODO replace with 'peel' ???
@@ -110,7 +111,7 @@ The return value is of the type `git-graph'."
     (cl-git:with-repository (git-dir)
       (cl-git:with-git-revisions
 	  (commit :head (remove-error-generating-references
-			 (cl-git:git-reference-list :flags '(:OID :PACKED))))
+			 (cl-git:git-list 'cl-git:reference :flags '(:OID :PACKED))))
 	(loop :for parent :in (cl-git:git-parent-oids commit)
 	   :do
 	   (add-edge parent (cl-git:git-id commit)
