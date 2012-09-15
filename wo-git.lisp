@@ -51,7 +51,7 @@ The precondition is that the git repository is already opened"
        :do
        (when obj
 	 (typecase obj  ;:TODO replace with 'peel' ???
-	   (cl-git::tag (setf obj (cl-git:git-target obj))))
+	   (cl-git::tag (setf obj (cl-git:git-peel obj))))
 	 (push reference-name (gethash (cl-git:git-id obj) result (list)))))
     result))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
