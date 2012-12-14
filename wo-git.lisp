@@ -182,3 +182,5 @@ have eiter no parents or no children"
      :for vertex = (name-to-vertex name git-graph)
      :unless (and (targets-of-vertex vertex git-graph) (sources-of-vertex vertex git-graph))
      :collect name))
+
+
