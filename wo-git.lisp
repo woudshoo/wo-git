@@ -46,8 +46,7 @@ The precondition is that the git repository is already opened"
 						   :flags '(:SYMBOLIC :OID :PACKED))
        :for reference = (cl-git:git-lookup :reference reference-name)
        :for resolved-reference = (cl-git:git-resolve reference)
-       :for oid = (cl-git:git-reference-oid resolved-reference)
-       :for obj = (ignore-errors (cl-git:git-lookup :object oid))
+       :for obj = (cl-git:git-target resolved-reference)
        :do
        (when obj
 	 (typecase obj  ;:TODO replace with 'peel' ???
