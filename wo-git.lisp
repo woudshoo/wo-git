@@ -5,38 +5,6 @@
 ;;; "wo-git" goes here. Hacks and glory await!
 
 
-(defparameter *git-command*
-  #+linux "/usr/bin/git"
-  #-linux "/usr/bin/git"
-  "The git executeable.")
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Functions to run git
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun run-git (git-dir &rest args)
-  "Runs the git executeable from *git-command*
-with --git-dir=`git-dir' and the additional arguments speficied as a list of arguments
-in `args'.
-
-It returns a list of strings corresponding to the stdout of the git command.
-
-It is not specified what happens if th git command throws an error.
-
-An example of use would be:
-
-  \(run-git git-dir \"log\" \"--pretty=format:%H %P\" \"--all\"\)
-"
-
-  (let ((proc (run-program *git-command*
-			  (cons (format nil "--git-dir=~A" git-dir) args)
-			  :output :stream
-			  :wait nil)))
-    (prog1
-	(loop :for line = (read-line (process-output proc) nil)
-	   :while line :collect line)
-      (process-close proc))))
-
 
 (defun git-names ()
   "Returns a hash table which maps commit oid to a list of names.
