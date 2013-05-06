@@ -6,7 +6,7 @@
 
 
 
-(defun git-names ()
+(defun git-names (&optional (name-filter (constantly t)))
   "Returns a hash table which maps commit oid to a list of names.
 The precondition is that the git repository is already opened"
   (let ((result (make-hash-table :test #'equalp)))
@@ -16,7 +16,7 @@ The precondition is that the git repository is already opened"
        :for resolved-reference = (cl-git:git-resolve reference)
        :for obj = (cl-git:git-target resolved-reference)
        :do
-       (when obj
+       (when (and obj (funcall name-filter reference-name))
 	 (typecase obj  ;:TODO replace with 'peel' ???
 	   (cl-git::tag (setf obj (cl-git:git-peel obj))))
 	 (push reference-name (gethash (cl-git:git-id obj) result (list)))))
@@ -62,7 +62,7 @@ during lookup are removed from the result."
 
 
 ;;;;;;
-(defun get-git-graph (git-dir)
+(defun get-git-graph (git-dir &optional (name-filter (constantly t)))
   "Creates a graph based on the repository in the `git-dir'.
 It will create this graph by starting with all references it can find and follow
 the parents of those references recursively until it has build the whole graph.
@@ -83,7 +83,7 @@ The return value is of the type `git-graph'."
 	   :do
 	   (add-edge parent (cl-git:git-id commit)
 	    nil graph)))
-      (setf (name-map graph) (git-names))
+      (setf (name-map graph) (git-names name-filter))
       (setf (reverse-name-map graph) (reverse-table (name-map graph))))
     ;; Add initial commits to the maps to:
     (loop
