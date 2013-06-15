@@ -6,20 +6,16 @@
 
 
 
-(defun git-names (&optional (name-filter (constantly t)))
+(defun git-names (repository &optional (name-filter (constantly t)))
   "Returns a hash table which maps commit oid to a list of names.
 The precondition is that the git repository is already opened"
   (let ((result (make-hash-table :test #'equalp)))
-    (loop :for reference-name :in (cl-git:git-list :reference 
-						   :flags '(:SYMBOLIC :OID :PACKED))
-       :for reference = (cl-git:git-lookup :reference reference-name)
-       :for resolved-reference = (cl-git:git-resolve reference)
-       :for obj = (cl-git:git-target resolved-reference)
+    (loop :for reference :in (cl-git:list-objects 'cl-git:reference repository)
+       :for reference-name = (cl-git:full-name reference)
+       :for obj = (cl-git:resolve reference '(cl-git:commit))
        :do
        (when (and obj (funcall name-filter reference-name))
-	 (typecase obj  ;:TODO replace with 'peel' ???
-	   (cl-git::tag (setf obj (cl-git:git-peel obj))))
-	 (push reference-name (gethash (cl-git:git-id obj) result (list)))))
+	 (push reference-name (gethash (cl-git:oid obj) result (list)))))
     result))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Data structures
@@ -75,15 +71,17 @@ In addition, for each commit which does not have a parent, a fake name of the fo
 
 The return value is of the type `git-graph'."
   (let ((graph (make-instance 'git-graph)))
-    (cl-git:with-repository (git-dir)
-      (cl-git:with-git-revisions
-	  (commit :head (remove-error-generating-references
-			 (cl-git:git-list :reference :flags '(:OID :PACKED))))
-	(loop :for parent :in (cl-git:git-parent-oids commit)
-	   :do
-	   (add-edge parent (cl-git:git-id commit)
-	    nil graph)))
-      (setf (name-map graph) (git-names name-filter))
+    (cl-git:with-repository (repo git-dir)
+      (loop :with walker = (cl-git:revision-walk 
+			    (mapcar (lambda (x) (cl-git:resolve x '(cl-git:commit)))
+				    (cl-git:list-objects 'cl-git:reference repo)))
+	 :for commit = (cl-git:next-revision walker)
+	 :until (null commit)
+	 :do
+	 (loop :for parent :in (cl-git:parents commit)
+	    :do
+	    (add-edge (cl-git:oid parent) (cl-git:oid commit) nil graph)))
+      (setf (name-map graph) (git-names repo name-filter))
       (setf (reverse-name-map graph) (reverse-table (name-map graph))))
     ;; Add initial commits to the maps to:
     (loop
